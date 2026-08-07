@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Packing Material Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1b1f2a;
+      --muted: #5b6475;
+      --line: #e1e6f0;
+      --brand: #0f4aa3;
+      --out: #d32f2f;
+      --low: #ef6c00;
+      --ok: #2e7d32;
+      --excess: #1565c0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 45%);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 20px;
+      background: #ffffffcc;
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+
+    .title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      color: var(--brand);
+      white-space: nowrap;
+    }
+
+    .view-toggle {
+      display: flex;
+      background: #eef2f7;
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      margin-left: 20px;
+    }
+
+    .view-toggle button {
+      border: none;
+      background: none;
+      padding: 6px 14px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .view-toggle button.active {
+      background: #fff;
+      color: var(--brand);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .controls {
+      display: flex;
+      gap: 5px;
+      justify-content: flex-end;
+    }
+
+    .controls input,
+    .controls select {
+      border: 1px solid #c9d4ea;
+      background: #fff;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      min-width: 170px;
+      outline: none;
+    }
+
+    .btn {
+      border: 1px solid #c9d4ea;
+      background: #fff;
+      color: var(--brand);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background: #edf3ff;
+    }
+
+    .export-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .export-dropdown {
+      position: relative;
+    }
+
+    .export-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      line-height: 1;
+    }
+
+    .export-dropdown summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .export-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      min-width: 170px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(22, 56, 94, 0.14);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 20;
+    }
+
+    .export-menu button {
+      text-align: left;
+      border: none;
+      background: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #123a67;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    .export-menu button:hover {
+      background: #f3f8ff;
+    }
+
+    .controls input:focus,
+    .controls select:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 2px #dbe7ff;
+    }
+
+    .wrap {
+      padding: 16px;
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .pill {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pill:hover {
+      border-color: #b9caef;
+      transform: translateY(-1px);
+    }
+
+    .pill.active {
+      border-color: var(--brand);
+      background: #edf3ff;
+    }
+
+    .pill b {
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .table-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 0.92rem;
+    }
+
+    .hide-branch .col-branch,
+    .hide-branch .col-zone {
+      display: none;
+    }
+
+    .hide-oos .col-oos-count {
+      display: none;
+    }
+
+
+    th {
+      background: #f7faff;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: #516086;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    tr:hover td {
+      background: #f9fbff;
+    }
+
+    tr.row-out td { background: #ffebee; }
+    tr.row-low td { background: #fff7ea; }
+    tr.row-ok td { background: #eefaf0; }
+    tr.row-excess td { background: #eaf4ff; }
+
+    .status {
+      display: inline-block;
+      font-weight: 600;
+      padding: 6px 8px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      border: 1px solid;
+    }
+
+    .out { color: var(--out); background: #ffebee; border-color: #ffcdd2; }
+    .low { color: var(--low); background: #fff3e0; border-color: #ffe0b2; }
+    .ok { color: var(--ok); background: #e8f5e9; border-color: #c8e6c9; }
+    .excess { color: var(--excess); background: #e5e5f5; border-color: #c5bee7; }
+    
+    .table-box tr.clickable {
+      cursor: pointer;
+    }
+
+    .drilldown-header {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      margin-bottom: 14px;
+    }
+
+    .drilldown-header.active {
+      display: flex;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #f0f4f8;
+      border: 1px solid #c9d4ea;
+      border-radius: 8px;
+      color: var(--brand);
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .back-btn:hover {
+      background: #e1e9f5;
+    }
+
+    .drilldown-title {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .drilldown-title b {
+      color: var(--text);
+    }
+
+    .drilldown-stats {
+      margin-left: auto;
+      display: flex;
+      gap: 20px;
+      padding-right: 8px;
+    }
+
+    .drilldown-stat {
+      font-size: 0.88rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .drilldown-stat b {
+      color: var(--text);
+      font-size: 1.05rem;
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+    
+    .muted {
+      color: var(--muted);
+      text-align: center;
+      padding: 18px;
+    }
+
+    @media (max-width: 700px) {
+      .navbar { padding: 12px; }
+      .title { font-size: 1rem; }
+      .controls { width: 100%; justify-content: stretch; }
+      .controls input,
+      .controls select,
+      .btn { width: 100%; min-width: 0; }
+      th,
+      td { font-size: 0.84rem; padding: 10px 8px; }
+    }
+
+    @media print {
+      .navbar,
+      .summary {
+        display: none;
+      }
+      body {
+        background: #fff;
+      }
+      .table-box {
+        border: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div style="display: flex; align-items: center;">
+      <div class="title">PACKING MATERIAL</div>
+      <div class="view-toggle">
+        <button id="productsViewBtn" class="active">Products</button>
+        <button id="branchesViewBtn">Branches</button>
+      </div>
+    </div>
+    <div class="controls">
+      <input type="search" id="searchInput" placeholder="Search" />
+      <select id="zoneFilter">
+        <option value="all">All Zones</option>
+      </select>
+      <select id="branchFilter">
+        <option value="all">All Branches</option>
+      </select>
+      <select id="variantFilter">
+        <option value="all">All Variants</option>
+      </select>
+      <select id="statusFilter">
+        <option value="all">All Stock</option>
+        <option value="out">Out Of Stock</option>
+        <option value="low">Low Stock</option>
+        <option value="ok">Correct Stock</option>
+        <option value="excess">Excess Stock</option>
+      </select>
+      <div class="export-actions">
+        <details class="export-dropdown" id="exportDropdown">
+          <summary class="btn export-trigger" title="Export">Export</summary>
+          <div class="export-menu">
+            <button type="button" data-export="excel">Export as Excel</button>
+            <button type="button" data-export="pdf">Export as PDF</button>
+          </div>
+        </details>
+      </div>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <div id="drilldownHeader" class="drilldown-header">
+      <button class="back-btn" id="backBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Back
+      </button>
+      <div class="drilldown-title" id="drilldownTitle"></div>
+      <div class="drilldown-stats" id="drilldownStats"></div>
+    </div>
+    <section class="summary" id="summaryCards"></section>
+    <section class="table-box">
+      <table id="productTable">
+        <thead id="tableHead">
+          <tr>
+            <th>Sno</th>
+            <th class="col-branch">Branch</th>
+            <th>Product</th>
+            <th class="col-oos-count">OOS Branches</th>
+            <th>Code</th>
+            <th>Variant</th>
+            <th>Min</th>
+            <th>Max</th>
+            <th>Stock</th>
+            <th>Restock</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td class="muted" colspan="11">Loading data...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzf2QDB9DLeCY2T6XHy7X4hM7phncWwd1wzonPcaIsAUa0a2Bhs-w7Fol73Pgd9t9gMfQ/exec";
+
+    const tableBody = document.getElementById("tableBody");
+    const tableHead = document.getElementById("tableHead");
+    const productTable = document.getElementById("productTable");
+    const summaryCards = document.getElementById("summaryCards");
+    const searchInput = document.getElementById("searchInput");
+    const zoneFilter = document.getElementById("zoneFilter");
+    const branchFilter = document.getElementById("branchFilter");
+    const variantFilter = document.getElementById("variantFilter");
+    const statusFilter = document.getElementById("statusFilter");
+
+    const exportDropdown = document.getElementById("exportDropdown");
+    const excelBtn = exportDropdown.querySelector('[data-export="excel"]');
+    const pdfBtn = exportDropdown.querySelector('[data-export="pdf"]');
+
+    const drilldownHeader = document.getElementById("drilldownHeader");
+    const drilldownTitle = document.getElementById("drilldownTitle");
+    const drilldownStats = document.getElementById("drilldownStats");
+    const backBtn = document.getElementById("backBtn");
+
+    const productsViewBtn = document.getElementById("productsViewBtn");
+    const branchesViewBtn = document.getElementById("branchesViewBtn");
+
+    let products = [];
+    let selectedProductKey = null;
+    let selectedProductName = "";
+    let currentView = "products"; // "products" or "branches"
+    let isEditMode = false;
+
+
+    function getProductKey(item) {
+      const code = String(item.Code ?? "").trim();
+      const fallbackKey = `${String(item.Product ?? "").trim()}|${String(item.Variant ?? "").trim()}`;
+      return code || fallbackKey;
+    }
+
+    function getStatus(item) {
+      if (item.Stock === "Not Found" || (typeof item.Stock === "string" && item.Stock.trim().toLowerCase() === "not found")) {
+        return { key: "out", label: "Not Found" };
+      }
+      const stock = Number(item.Stock) || 0;
+      const min = Number(item.Min) || 0;
+      const max = Number(item.Max) || 0;
+
+      if (stock === 0) return { key: "out", label: "Out Of Stock" };
+      if (stock < min) return { key: "low", label: "Low Stock" };
+      if (stock >= min && stock <= max) return { key: "ok", label: "Correct Stock" };
+      return { key: "excess", label: "Excess Stock" };
+    }
+
+    function getStockValue(item) {
+      const raw = item?.Stock;
+      if (raw === null || raw === undefined || String(raw).trim() === "") return 0;
+      const parsed = Number(raw);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    }
+
+    function getNumberValue(value) {
+      const raw = value;
+      if (raw === null || raw === undefined || String(raw).trim() === "") return 0;
+      const parsed = Number(raw);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    }
+
+    function consolidateByCode(list) {
+      const grouped = new Map();
+      list.forEach((item) => {
+        const code = String(item.Code ?? "").trim();
+        const fallbackKey = `${String(item.Product ?? "").trim()}|${String(item.Variant ?? "").trim()}`;
+        const key = code || fallbackKey;
+
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            ...item,
+            Min: 0,
+            Max: 0,
+            Stock: 0,
+            RestockSum: 0,
+            OOSCount: 0
+          });
+        }
+
+        const merged = grouped.get(key);
+        merged.Min += getNumberValue(item.Min);
+        merged.Max += getNumberValue(item.Max);
+        merged.Stock += getStockValue(item);
+        
+        const r = getRestockValue(item);
+        if (r !== "-") merged.RestockSum += r;
+
+        if (getStatus(item).key === "out") {
+          merged.OOSCount += 1;
+        }
+      });
+      return [...grouped.values()];
+    }
+
+    function getBranchViewData() {
+      const baseData = getBaseFilteredData();
+      const branchesMap = new Map();
+      
+      baseData.forEach(item => {
+        const branchName = String(item.Branch ?? "").trim();
+        if (!branchName) return;
+        
+        if (!branchesMap.has(branchName)) {
+          branchesMap.set(branchName, {
+            Branch: branchName,
+            Zone: String(item.Zone ?? "").trim(),
+            TotalProducts: 0,
+            out: 0,
+            low: 0,
+            ok: 0,
+            excess: 0
+          });
+        }
+        
+        const branchObj = branchesMap.get(branchName);
+        branchObj.TotalProducts += 1;
+        
+        const status = getStatus(item);
+        branchObj[status.key] += 1;
+      });
+      
+      let list = [...branchesMap.values()].sort((a, b) => a.Branch.localeCompare(b.Branch));
+      
+      const filter = statusFilter.value;
+      if (filter !== "all") {
+        list = list.filter(b => b[filter] > 0);
+      }
+      return list;
+    }
+
+    function getBaseFilteredData() {
+      const query = searchInput.value.trim().toLowerCase();
+      const branch = branchFilter.value;
+      const variant = variantFilter.value;
+      const zone = zoneFilter.value;
+
+      return products.filter((item) => {
+        const itemBranch = String(item.Branch ?? "").trim();
+        const itemVariant = String(item.Variant ?? "").trim();
+        const itemZone = String(item.Zone ?? "").trim();
+        const searchTarget = [
+          item.Branch,
+          item.Product,
+          item.Code,
+          item.Variant,
+          item.Zone
+        ].join(" ").toLowerCase();
+
+        const matchQuery = !query || searchTarget.includes(query);
+        const matchBranch = branch === "all" || itemBranch === branch;
+        const matchVariant = variant === "all" || itemVariant === variant;
+        const matchZone = zone === "all" || itemZone === zone;
+        return matchQuery && matchBranch && matchVariant && matchZone;
+      });
+    }
+
+
+    function getTableFilteredData() {
+      const base = getBaseFilteredData();
+      const branch = branchFilter.value;
+      
+      let source;
+      if (branch === "all") {
+        if (selectedProductKey) {
+          source = base.filter(item => getProductKey(item) === selectedProductKey);
+        } else {
+          source = consolidateByCode(base);
+        }
+      } else {
+        source = base;
+      }
+      
+      const filter = statusFilter.value;
+      const statusOrder = { out: 1, low: 2, excess: 3, ok: 4 };
+      const sortByStatus = (list) => [...list].sort((a, b) => {
+        const aKey = getStatus(a).key;
+        const bKey = getStatus(b).key;
+        const byStatus = (statusOrder[aKey] || 99) - (statusOrder[bKey] || 99);
+        if (byStatus !== 0) return byStatus;
+        return String(a.Product ?? "").localeCompare(String(b.Product ?? ""));
+      });
+
+      if (filter === "all") return sortByStatus(source);
+      return sortByStatus(source.filter((item) => getStatus(item).key === filter));
+    }
+
+    function renderVariantFilter(data) {
+      const variants = [...new Set(
+        data.map((item) => String(item.Variant ?? "").trim()).filter(Boolean)
+      )].sort();
+      const selected = variantFilter.value;
+      variantFilter.innerHTML =
+        '<option value="all">All Variants</option>' +
+        variants.map((v) => `<option value="${v}">${v}</option>`).join("");
+      variantFilter.value = variants.includes(selected) ? selected : "all";
+    }
+
+    function renderBranchFilter(data) {
+      const branches = [...new Set(
+        data.map((item) => String(item.Branch ?? "").trim()).filter(Boolean)
+      )].sort();
+      const selected = branchFilter.value;
+      branchFilter.innerHTML =
+        '<option value="all">All Branches</option>' +
+        branches.map((b) => `<option value="${b}">${b}</option>`).join("");
+      branchFilter.value = branches.includes(selected) ? selected : "all";
+    }
+
+    function renderZoneFilter(data) {
+      const zones = [...new Set(
+        data.map((item) => String(item.Zone ?? "").trim()).filter(Boolean)
+      )].sort();
+      const selected = zoneFilter.value;
+      zoneFilter.innerHTML =
+        '<option value="all">All Zones</option>' +
+        zones.map((z) => `<option value="${z}">${z}</option>`).join("");
+      zoneFilter.value = zones.includes(selected) ? selected : "all";
+    }
+
+
+    function renderSummary(list) {
+      const isDrilldown = branchFilter.value === "all" && !!selectedProductKey;
+      let counts;
+      let labelTotal = "Total Products";
+
+      if (isDrilldown) {
+        const branchItems = list.filter(item => getProductKey(item) === selectedProductKey);
+        counts = { all: branchItems.length, out: 0, low: 0, ok: 0, excess: 0 };
+        branchItems.forEach((item) => {
+          counts[getStatus(item).key] += 1;
+        });
+        labelTotal = "Total Branches";
+      } else {
+        const consolidated = consolidateByCode(list);
+        counts = { all: consolidated.length, out: 0, low: 0, ok: 0, excess: 0 };
+        consolidated.forEach((item) => {
+          counts[getStatus(item).key] += 1;
+        });
+      }
+      const active = statusFilter.value;
+
+      summaryCards.innerHTML = `
+        <div class="pill ${active === "all" ? "active" : ""}" data-filter="all"><b>${counts.all}</b><br/>${labelTotal}</div>
+        <div class="pill ${active === "out" ? "active" : ""}" data-filter="out"><b>${counts.out}</b><br/>Out Of Stock</div>
+        <div class="pill ${active === "low" ? "active" : ""}" data-filter="low"><b>${counts.low}</b><br/>Low Stock</div>
+        <div class="pill ${active === "ok" ? "active" : ""}" data-filter="ok"><b>${counts.ok}</b><br/>Correct Stock</div>
+        <div class="pill ${active === "excess" ? "active" : ""}" data-filter="excess"><b>${counts.excess}</b><br/>Excess Stock</div>
+      `;
+
+      summaryCards.querySelectorAll(".pill").forEach((pill) => {
+        pill.addEventListener("click", () => {
+          statusFilter.value = pill.dataset.filter;
+          renderTable();
+        });
+      });
+    }
+
+    function getTableColspan() {
+      let cols = 13;
+      if (productTable.classList.contains("hide-branch")) cols -= 2;
+      if (productTable.classList.contains("hide-oos")) cols--;
+      return cols;
+    }
+
+    function getRestockValue(item) {
+      if (item.RestockSum !== undefined) return item.RestockSum;
+      const status = getStatus(item);
+      if (status.key === "excess") return "-";
+      return (Number(item.Max) || 0) - getStockValue(item);
+    }
+
+    function renderTable() {
+      // Toggle filters visibility based on active view
+      zoneFilter.style.display = (currentView === "branches") ? "" : "none";
+      variantFilter.style.display = (currentView === "products") ? "" : "none";
+
+      const baseFiltered = getBaseFilteredData();
+      renderSummary(baseFiltered);
+      
+      if (currentView === "branches") {
+        drilldownHeader.classList.remove("active");
+        productTable.classList.remove("hide-branch");
+        productTable.classList.remove("hide-oos");
+
+        tableHead.innerHTML = `
+          <tr>
+            <th>Sno</th>
+            <th>Branch</th>
+            <th>Zone</th>
+            <th>Total Products</th>
+            <th style="color: var(--out);">Out Of Stock</th>
+            <th style="color: var(--low);">Low Stock</th>
+            <th style="color: var(--ok);">Correct Stock</th>
+            <th style="color: var(--excess);">Excess Stock</th>
+          </tr>
+        `;
+
+        const branchData = getBranchViewData();
+        if (!branchData.length) {
+          tableBody.innerHTML = `<tr><td class="muted" colspan="8">No matching branches found.</td></tr>`;
+          return;
+        }
+
+        tableBody.innerHTML = branchData.map((b, index) => {
+          return `
+            <tr class="clickable branch-row" data-branch="${b.Branch}">
+              <td>${index + 1}</td>
+              <td><b>${b.Branch}</b></td>
+              <td>${b.Zone || "-"}</td>
+              <td class="col-count-all" style="cursor: pointer;">${b.TotalProducts}</td>
+              <td class="col-count-out" style="font-weight: bold; color: ${b.out > 0 ? 'var(--out)' : 'inherit'}; cursor: pointer;">${b.out}</td>
+              <td class="col-count-low" style="font-weight: bold; color: ${b.low > 0 ? 'var(--low)' : 'inherit'}; cursor: pointer;">${b.low}</td>
+              <td class="col-count-ok" style="font-weight: bold; color: ${b.ok > 0 ? 'var(--ok)' : 'inherit'}; cursor: pointer;">${b.ok}</td>
+              <td class="col-count-excess" style="font-weight: bold; color: ${b.excess > 0 ? 'var(--excess)' : 'inherit'}; cursor: pointer;">${b.excess}</td>
+            </tr>
+          `;
+        }).join("");
+        return;
+      }
+
+      // Products View
+      tableHead.innerHTML = `
+        <tr>
+          <th>Sno</th>
+          <th class="col-branch">Branch</th>
+          <th class="col-zone">Zone</th>
+          <th>Product</th>
+          <th class="col-oos-count">OOS Branches</th>
+          <th>Code</th>
+          <th>Variant</th>
+          <th>Min</th>
+          <th>Max</th>
+          <th>Stock</th>
+          <th>Restock</th>
+          <th>
+            Remarks
+            <button id="toggleEditBtn" class="btn" style="padding: 2px 6px; font-size: 0.75rem; margin-left: 6px;" onclick="toggleEditMode(event)">
+              ${isEditMode ? "Lock" : "Edit"}
+            </button>
+          </th>
+          <th>Status</th>
+        </tr>
+      `;
+
+      const filtered = getTableFilteredData();
+      
+      const isProductDrilldown = branchFilter.value === "all" && !!selectedProductKey;
+      const isBranchDrilldown = branchFilter.value !== "all";
+      const isConsolidated = branchFilter.value === "all" && !selectedProductKey;
+      productTable.classList.toggle("hide-branch", isConsolidated);
+      productTable.classList.toggle("hide-oos", !isConsolidated);
+      
+      if (isProductDrilldown || isBranchDrilldown) {
+        drilldownHeader.classList.add("active");
+        if (isProductDrilldown) {
+          let totalStock = 0;
+          let totalRestock = 0;
+          filtered.forEach(item => {
+            totalStock += getStockValue(item);
+            const r = getRestockValue(item);
+            if (r !== "-") totalRestock += Number(r) || 0;
+          });
+
+          drilldownTitle.innerHTML = `Showing branch details for: <b>${selectedProductName}</b>`;
+          drilldownStats.innerHTML = `
+            <div class="drilldown-stat">Total Stock: <b>${totalStock}</b></div>
+            <div class="drilldown-stat">Total Restock: <b>${totalRestock}</b></div>
+          `;
+        } else {
+          drilldownTitle.innerHTML = `Showing products for branch: <b>${branchFilter.value}</b>`;
+          drilldownStats.innerHTML = "";
+        }
+      } else {
+        drilldownHeader.classList.remove("active");
+      }
+
+      if (!filtered.length) {
+        tableBody.innerHTML = `<tr><td class="muted" colspan="${getTableColspan()}">No matching products found.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = filtered.map((item, index) => {
+        const status = getStatus(item);
+        const stockValue = getStockValue(item);
+        const restockValue = getRestockValue(item);
+        const isNotFound = item.Stock === "Not Found" || (typeof item.Stock === "string" && item.Stock.trim().toLowerCase() === "not found");
+        const stockDisplay = isNotFound ? "Not Found" : stockValue;
+        
+        return `
+          <tr class="row-${status.key} ${isConsolidated ? 'clickable' : ''}" 
+              data-key="${getProductKey(item)}" 
+              data-name="${item.Product ?? ''}">
+            <td>${index + 1}</td>
+            <td class="col-branch">${item.Branch ?? ""}</td>
+            <td class="col-zone">${item.Zone ?? ""}</td>
+            <td>${item.Product ?? ""}</td>
+            <td class="col-oos-count" style="font-weight: bold; color: ${item.OOSCount > 0 ? 'var(--out)' : 'inherit'}; cursor: pointer;">${item.OOSCount || 0}</td>
+            <td>${item.Code ?? ""}</td>
+            <td>${item.Variant ?? ""}</td>
+            <td>${item.Min ?? ""}</td>
+            <td>${item.Max ?? ""}</td>
+            <td>${stockDisplay}</td>
+            <td>${restockValue}</td>
+            <td onclick="event.stopPropagation();">
+              ${isEditMode ? `
+                <textarea class="remark-input" 
+                          data-code="${item.Code ?? ''}" 
+                          data-product="${item.Product ?? ''}" 
+                          data-variant="${item.Variant ?? ''}" 
+                          style="width: 100%; min-width: 120px; border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; font-size: 0.88rem; font-family: inherit; resize: vertical; box-sizing: border-box; display: block;" 
+                          rows="2"
+                          onchange="updateRemark(this)">${item.Remarks ?? ''}</textarea>
+              ` : `
+                <span style="white-space: pre-wrap; word-break: break-word;">${item.Remarks ?? ''}</span>
+              `}
+            </td>
+            <td><span class="status ${status.key}">${status.label}</span></td>
+          </tr>
+        `;
+      }).join("");
+
+    }
+
+    function exportExcel() {
+      try {
+        const query = searchInput.value.trim().toLowerCase();
+        const variant = variantFilter.value;
+        const baseForExport = products.filter((item) => {
+          const itemVariant = String(item.Variant ?? "").trim();
+          const searchTarget = [
+            item.Branch,
+            item.Product,
+            item.Code,
+            item.Variant
+          ].join(" ").toLowerCase();
+
+          const matchQuery = !query || searchTarget.includes(query);
+          const matchVariant = variant === "all" || itemVariant === variant;
+          return matchQuery && matchVariant;
+        });
+
+        // 1. Branchwise Restock
+        const branchRows = [];
+        baseForExport.forEach(item => {
+          let stock = getStockValue(item);
+          if (stock < 0) stock = 0; // Consider negative stock as 0
+          const min = getNumberValue(item.Min);
+          const max = getNumberValue(item.Max);
+          
+          if (stock >= max) return; // Do not consider excess/sufficient stock
+          
+          const restock = max - stock;
+          if (restock > 0) {
+            branchRows.push({
+              "Branch": item.Branch ?? "",
+              "Product": item.Product ?? "",
+              "Code": item.Code ?? "",
+              "Min": min,
+              "Max": max,
+              "Stock": stock,
+              "Restock": restock,
+              "Status": getStatus(item).label
+            });
+          }
+        });
+
+        // 2. Consolidate for Overall Restock (from baseForExport)
+        const overallGrouped = new Map();
+        baseForExport.forEach(item => {
+          const code = String(item.Code ?? "").trim();
+          const key = code || String(item.Product ?? "").trim();
+
+          if (!overallGrouped.has(key)) {
+            overallGrouped.set(key, {
+              "Product Name": item.Product,
+              "Code": item.Code,
+              "Stock": 0,
+              "Restock": 0,
+              "Remarks": ""
+            });
+          }
+
+          const merged = overallGrouped.get(key);
+          merged.Stock += getStockValue(item);
+          
+          let stock = getStockValue(item);
+          if (stock < 0) stock = 0;
+          const max = getNumberValue(item.Max);
+          if (stock < max) {
+            merged.Restock += (max - stock);
+          }
+
+          if (item.Remarks) {
+            const remarkStr = String(item.Remarks).trim();
+            if (remarkStr) {
+              const existingRemarks = merged.Remarks ? merged.Remarks.split("; ") : [];
+              if (!existingRemarks.includes(remarkStr)) {
+                existingRemarks.push(remarkStr);
+                merged.Remarks = existingRemarks.join("; ");
+              }
+            }
+          }
+        });
+        const overallRows = [...overallGrouped.values()].filter(row => row.Restock > 0);
+
+        // 3. Master Stock (Full Stock Branchwise)
+        const masterStockRows = baseForExport.map(item => ({
+          "Branch": item.Branch ?? "",
+          "Product": item.Product ?? "",
+          "Code": item.Code ?? "",
+          "Variant": item.Variant ?? "",
+          "Min": getNumberValue(item.Min),
+          "Max": getNumberValue(item.Max),
+          "Stock": (item.Stock === "Not Found" || (typeof item.Stock === "string" && item.Stock.trim().toLowerCase() === "not found")) ? "Not Found" : getStockValue(item),
+          "Status": getStatus(item).label
+        }));
+
+        const wb = XLSX.utils.book_new();
+        
+        const wsOverall = XLSX.utils.json_to_sheet(overallRows.length ? overallRows : [{ Message: "No restock needed" }]);
+        XLSX.utils.book_append_sheet(wb, wsOverall, "Overall Restock");
+
+        const wsBranch = XLSX.utils.json_to_sheet(branchRows.length ? branchRows : [{ Message: "No restock needed" }]);
+        XLSX.utils.book_append_sheet(wb, wsBranch, "Branchwise Restock");
+
+        const wsMaster = XLSX.utils.json_to_sheet(masterStockRows.length ? masterStockRows : [{ Message: "No stock data" }]);
+        XLSX.utils.book_append_sheet(wb, wsMaster, "Master Stock");
+
+        XLSX.writeFile(wb, "Restock_Report.xlsx");
+      } catch (err) {
+        console.error("Excel export failed:", err);
+        alert("Failed to export Excel.");
+      }
+    }
+
+    function exportPdf() {
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "landscape" });
+        const includeBranch = branchFilter.value !== "all";
+        const rows = getTableFilteredData().map((item, index) => {
+          const isNotFound = item.Stock === "Not Found" || (typeof item.Stock === "string" && item.Stock.trim().toLowerCase() === "not found");
+          const baseRow = [
+            index + 1,
+            item.Product ?? "",
+            item.Code ?? "",
+            item.Variant ?? "",
+            item.Min ?? "",
+            item.Max ?? "",
+            isNotFound ? "Not Found" : getStockValue(item),
+            getRestockValue(item),
+            getStatus(item).label
+          ];
+          return includeBranch ? [index + 1, item.Branch ?? "", ...baseRow.slice(1)] : baseRow;
+        });
+        const head = includeBranch
+          ? [["Sno", "Branch", "Product", "Code", "Variant", "Min", "Max", "Stock", "Restock", "Status"]]
+          : [["Sno", "Product", "Code", "Variant", "Min", "Max", "Stock", "Restock", "Status"]];
+        const emptyRow = includeBranch
+          ? [["No data available for selected filters", "", "", "", "", "", "", "", "", ""]]
+          : [["No data available for selected filters", "", "", "", "", "", "", "", ""]];
+        doc.setFontSize(13);
+        doc.text("Food Product Stock Report", 14, 12);
+        doc.autoTable({
+          startY: 16,
+          head,
+          body: rows.length ? rows : emptyRow,
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [30, 111, 217] },
+          theme: "grid"
+        });
+        doc.save("Food_Product_Stock_Report.pdf");
+      } catch (err) {
+        console.error("PDF export failed:", err);
+        alert("Failed to export PDF.");
+      }
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch(API_URL + "?type=PM");
+        const data = await res.json();
+        products = Array.isArray(data) ? data : [data];
+        renderZoneFilter(products);
+        renderBranchFilter(products);
+        renderVariantFilter(products);
+        renderTable();
+      } catch (error) {
+        tableBody.innerHTML = '<tr><td class="muted" colspan="12">Unable to load data from Apps Script.</td></tr>';
+      }
+    }
+
+    function clearDrilldown() {
+      selectedProductKey = null;
+      selectedProductName = "";
+      statusFilter.value = "all";
+      renderTable();
+    }
+
+    tableBody.addEventListener("click", (e) => {
+      // If clicking inside a remark input, do not trigger drilldown row click
+      if (e.target.classList.contains("remark-input")) {
+        return;
+      }
+      const row = e.target.closest("tr.clickable");
+      if (!row) return;
+      
+      if (currentView === "branches") {
+        const branchName = row.dataset.branch;
+        branchFilter.value = branchName;
+        currentView = "products";
+        productsViewBtn.classList.add("active");
+        branchesViewBtn.classList.remove("active");
+        zoneFilter.value = "all"; // Reset zone filter when leaving branch view
+        
+        if (e.target.classList.contains("col-count-out") || e.target.closest(".col-count-out")) {
+          statusFilter.value = "out";
+        } else if (e.target.classList.contains("col-count-low") || e.target.closest(".col-count-low")) {
+          statusFilter.value = "low";
+        } else if (e.target.classList.contains("col-count-ok") || e.target.closest(".col-count-ok")) {
+          statusFilter.value = "ok";
+        } else if (e.target.classList.contains("col-count-excess") || e.target.closest(".col-count-excess")) {
+          statusFilter.value = "excess";
+        } else {
+          statusFilter.value = "all";
+        }
+        
+        renderTable();
+      } else {
+        selectedProductKey = row.dataset.key;
+        selectedProductName = row.dataset.name;
+        
+        if (e.target.classList.contains("col-oos-count") || e.target.closest(".col-oos-count")) {
+          statusFilter.value = "out";
+        } else {
+          statusFilter.value = "all";
+        }
+        
+        renderTable();
+      }
+    });
+
+    productsViewBtn.addEventListener("click", () => {
+      if (currentView === "products") return;
+      currentView = "products";
+      productsViewBtn.classList.add("active");
+      branchesViewBtn.classList.remove("active");
+      zoneFilter.value = "all"; // Reset zone filter
+      renderTable();
+    });
+
+    branchesViewBtn.addEventListener("click", () => {
+      if (currentView === "branches") return;
+      currentView = "branches";
+      branchesViewBtn.classList.add("active");
+      productsViewBtn.classList.remove("active");
+      variantFilter.value = "all"; // Reset variant filter
+      clearDrilldown();
+    });
+
+    backBtn.addEventListener("click", () => {
+      if (branchFilter.value !== "all") {
+        branchFilter.value = "all";
+        currentView = "branches";
+        productsViewBtn.classList.remove("active");
+        branchesViewBtn.classList.add("active");
+        variantFilter.value = "all"; // Reset variant filter
+        renderTable();
+      } else {
+        clearDrilldown();
+      }
+    });
+
+
+    searchInput.addEventListener("input", () => {
+      clearDrilldown();
+    });
+    
+    zoneFilter.addEventListener("change", () => {
+      clearDrilldown();
+    });
+
+    branchFilter.addEventListener("change", () => {
+      clearDrilldown();
+    });
+    
+    variantFilter.addEventListener("change", () => {
+      clearDrilldown();
+    });
+    
+    statusFilter.addEventListener("change", renderTable);
+    
+    excelBtn.addEventListener("click", () => {
+      exportExcel();
+      exportDropdown.open = false;
+    });
+    pdfBtn.addEventListener("click", () => {
+      exportPdf();
+      exportDropdown.open = false;
+    });
+
+    function toggleEditMode(event) {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      isEditMode = !isEditMode;
+      renderTable();
+    }
+
+    async function updateRemark(input) {
+      const code = input.dataset.code;
+      const product = input.dataset.product;
+      const variant = input.dataset.variant;
+      const remark = input.value;
+
+      input.style.borderColor = "#f59e0b"; // saving status
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain"
+          },
+          body: JSON.stringify({
+            action: "updateRemark",
+            type: "PM",
+            code: code,
+            product: product,
+            variant: variant,
+            remark: remark
+          })
+        });
+        const result = await response.json();
+        if (result.status === "success") {
+          input.style.borderColor = "var(--ok)";
+          setTimeout(() => {
+            input.style.borderColor = "var(--line)";
+          }, 1500);
+
+          products.forEach(p => {
+            let match = false;
+            if (code) {
+              match = (String(p.Code ?? "").trim() === code.trim());
+            } else {
+              match = (String(p.Product ?? "").trim() === product.trim() && String(p.Variant ?? "").trim() === variant.trim());
+            }
+            if (match) {
+              p.Remarks = remark;
+            }
+          });
+        } else {
+          alert("Failed to save remark: " + result.message);
+          input.style.borderColor = "var(--out)";
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error saving remark.");
+        input.style.borderColor = "var(--out)";
+      }
+    }
+
+    loadData();
+
+  </script>
+</body>
+</html>
