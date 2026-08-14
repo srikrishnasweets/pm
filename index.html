@@ -386,6 +386,77 @@
         border: none;
       }
     }
+
+    /* Lightbox Modal */
+    .lightbox-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .lightbox-overlay.active {
+      opacity: 1;
+    }
+
+    .lightbox-content {
+      position: relative;
+      max-width: 90vw;
+      max-height: 90vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      background: #000;
+      transform: scale(0.95);
+      transition: transform 0.3s ease;
+    }
+
+    .lightbox-overlay.active .lightbox-content {
+      transform: scale(1);
+    }
+
+    .lightbox-content img {
+      max-width: 100%;
+      max-height: 90vh;
+      object-fit: contain;
+      display: block;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      font-weight: bold;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .lightbox-close:hover {
+      background: rgba(255, 255, 255, 0.4);
+      transform: scale(1.1);
+    }
   </style>
 </head>
 <body>
@@ -398,6 +469,7 @@
       </div>
     </div>
     <div class="controls">
+      <button type="button" class="btn" onclick="window.open('https://srikrishnasweets.github.io/packing-materials/', '_blank')">Quick Look</button>
       <input type="search" id="searchInput" placeholder="Search" />
       <select id="zoneFilter">
         <option value="all">All Zones</option>
@@ -443,6 +515,8 @@
           <tr>
             <th>Sno</th>
             <th class="col-branch">Branch</th>
+            <th class="col-zone">Zone</th>
+            <th>Image</th>
             <th>Product</th>
             <th class="col-oos-count">OOS Branches</th>
             <th>Code</th>
@@ -455,7 +529,7 @@
           </tr>
         </thead>
         <tbody id="tableBody">
-          <tr><td class="muted" colspan="11">Loading data...</td></tr>
+          <tr><td class="muted" colspan="13">Loading data...</td></tr>
         </tbody>
       </table>
     </section>
@@ -492,6 +566,37 @@
     let currentView = "products"; // "products" or "branches"
     let isEditMode = false;
 
+
+    function getImgLink(item) {
+      if (!item) return "";
+      const possibleKeys = ["Img", "Image", "image", "Image Link", "ImageLink", "Image Drive Link", "Drive Link", "Link", "Photo", "img"];
+      for (const key of possibleKeys) {
+        if (item[key] && String(item[key]).trim() !== "" && String(item[key]).trim() !== "#N/A") {
+          return String(item[key]).trim();
+        }
+      }
+      for (const key in item) {
+        const lowerKey = key.toLowerCase();
+        if ((lowerKey.includes("img") || lowerKey.includes("image") || lowerKey.includes("photo") || (lowerKey.includes("drive") && lowerKey.includes("link"))) && item[key]) {
+          const val = String(item[key]).trim();
+          if (val && val !== "#N/A") return val;
+        }
+      }
+      return "";
+    }
+
+    function img(link) {
+      if (!link || link === "#N/A") return "";
+      let match = link.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+      }
+      match = link.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+      }
+      return link;
+    }
 
     function getProductKey(item) {
       const code = String(item.Code ?? "").trim();
@@ -645,7 +750,8 @@
         const bKey = getStatus(b).key;
         const byStatus = (statusOrder[aKey] || 99) - (statusOrder[bKey] || 99);
         if (byStatus !== 0) return byStatus;
-        return String(a.Product ?? "").localeCompare(String(b.Product ?? ""));
+        const aRestock = getRestockValue(a); const bRestock = getRestockValue(b);
+        return (bRestock === "-" ? 0 : Number(bRestock)) - (aRestock === "-" ? 0 : Number(aRestock)); // higher restock first
       });
 
       if (filter === "all") return sortByStatus(source);
@@ -724,7 +830,7 @@
     }
 
     function getTableColspan() {
-      let cols = 13;
+      let cols = 14;
       if (productTable.classList.contains("hide-branch")) cols -= 2;
       if (productTable.classList.contains("hide-oos")) cols--;
       return cols;
@@ -792,6 +898,7 @@
           <th>Sno</th>
           <th class="col-branch">Branch</th>
           <th class="col-zone">Zone</th>
+          <th>Image</th>
           <th>Product</th>
           <th class="col-oos-count">OOS Branches</th>
           <th>Code</th>
@@ -854,6 +961,10 @@
         const isNotFound = item.Stock === "Not Found" || (typeof item.Stock === "string" && item.Stock.trim().toLowerCase() === "not found");
         const stockDisplay = isNotFound ? "Not Found" : stockValue;
         
+        const rawLink = getImgLink(item);
+        const imageUrl = img(rawLink);
+        const imgHtml = imageUrl ? `<img src="${imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; display: block; cursor: zoom-in;" onclick="event.stopPropagation(); openLightbox('${rawLink}');" title="Click to view full image" />` : `<div style="width: 40px; height: 40px; border-radius: 4px; background: #eef2f7; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #94a3b8;">No Img</div>`;
+        
         return `
           <tr class="row-${status.key} ${isConsolidated ? 'clickable' : ''}" 
               data-key="${getProductKey(item)}" 
@@ -861,6 +972,7 @@
             <td>${index + 1}</td>
             <td class="col-branch">${item.Branch ?? ""}</td>
             <td class="col-zone">${item.Zone ?? ""}</td>
+            <td>${imgHtml}</td>
             <td>${item.Product ?? ""}</td>
             <td class="col-oos-count" style="font-weight: bold; color: ${item.OOSCount > 0 ? 'var(--out)' : 'inherit'}; cursor: pointer;">${item.OOSCount || 0}</td>
             <td>${item.Code ?? ""}</td>
@@ -1049,12 +1161,15 @@
         const res = await fetch(API_URL + "?type=PM");
         const data = await res.json();
         products = Array.isArray(data) ? data : [data];
+        if (products.length > 0) {
+          console.log("Keys of first product:", Object.keys(products[0]));
+        }
         renderZoneFilter(products);
         renderBranchFilter(products);
         renderVariantFilter(products);
         renderTable();
       } catch (error) {
-        tableBody.innerHTML = '<tr><td class="muted" colspan="12">Unable to load data from Apps Script.</td></tr>';
+        tableBody.innerHTML = '<tr><td class="muted" colspan="14">Unable to load data from Apps Script.</td></tr>';
       }
     }
 
@@ -1228,8 +1343,45 @@
       }
     }
 
+    function openLightbox(src) {
+      const overlay = document.getElementById("lightboxOverlay");
+      const img = document.getElementById("lightboxImg");
+      if (overlay && img) {
+        let previewSrc = src;
+        const matchD = src.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const matchId = src.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        const id = (matchD && matchD[1]) || (matchId && matchId[1]);
+        if (id) {
+          previewSrc = `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
+        }
+        img.src = previewSrc;
+        overlay.classList.add("active");
+        overlay.style.display = "flex";
+      }
+    }
+
+    function closeLightbox() {
+      const overlay = document.getElementById("lightboxOverlay");
+      if (overlay) {
+        overlay.classList.remove("active");
+        setTimeout(() => {
+          if (!overlay.classList.contains("active")) {
+            overlay.style.display = "none";
+          }
+        }, 300);
+      }
+    }
+
     loadData();
 
   </script>
+
+  <!-- Lightbox Overlay -->
+  <div id="lightboxOverlay" class="lightbox-overlay" onclick="closeLightbox()">
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+      <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+      <img id="lightboxImg" src="" alt="Preview" />
+    </div>
+  </div>
 </body>
 </html>
