@@ -67,6 +67,31 @@
       margin-left: 20px;
     }
 
+    .mail-time-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      border: 1px solid #c8dcfc;
+      color: #1e40af;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      margin-left: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    .mail-time-badge svg {
+      color: var(--brand);
+      flex-shrink: 0;
+    }
+
+    .mail-time-badge strong {
+      color: #0f4aa3;
+      font-weight: 700;
+    }
+
     .view-toggle button {
       border: none;
       background: none;
@@ -461,11 +486,15 @@
 </head>
 <body>
   <nav class="navbar">
-    <div style="display: flex; align-items: center;">
+    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
       <div class="title">PACKING MATERIAL</div>
       <div class="view-toggle">
         <button id="productsViewBtn" class="active">Products</button>
         <button id="branchesViewBtn">Branches</button>
+      </div>
+      <div id="mailTimeBadge" class="mail-time-badge" style="display: none;" title="Exact time stock report email was received">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>Mail Received: <strong id="mailTimeText">-</strong></span>
       </div>
     </div>
     <div class="controls">
@@ -565,7 +594,8 @@
     let selectedProductName = "";
     let currentView = "products"; // "products" or "branches"
     let isEditMode = false;
-
+    let avgSortDesc = false;
+    let lastMailTime = "";
 
     function getImgLink(item) {
       if (!item) return "";
@@ -1140,27 +1170,77 @@
           ? [["No data available for selected filters", "", "", "", "", "", "", "", "", ""]]
           : [["No data available for selected filters", "", "", "", "", "", "", "", ""]];
         doc.setFontSize(13);
-        doc.text("Food Product Stock Report", 14, 12);
+        doc.text("Packing Material Stock Report", 14, 12);
+        if (lastMailTime) {
+          doc.setFontSize(8.5);
+          doc.setTextColor(80, 95, 120);
+          doc.text("Mail Received: " + formatMailReceivedTime(lastMailTime), 14, 17);
+        }
         doc.autoTable({
-          startY: 16,
+          startY: lastMailTime ? 20 : 16,
           head,
           body: rows.length ? rows : emptyRow,
           styles: { fontSize: 8, cellPadding: 2 },
           headStyles: { fillColor: [30, 111, 217] },
           theme: "grid"
         });
-        doc.save("Food_Product_Stock_Report.pdf");
+        doc.save("Packing_Material_Stock_Report.pdf");
       } catch (err) {
         console.error("PDF export failed:", err);
         alert("Failed to export PDF.");
       }
     }
 
+    function formatMailReceivedTime(timeStr) {
+      if (!timeStr) return "";
+      const d = new Date(timeStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
+      return timeStr;
+    }
+
+    function renderMailReceivedTime(timeStr) {
+      lastMailTime = timeStr || "";
+      const badge = document.getElementById("mailTimeBadge");
+      const textElem = document.getElementById("mailTimeText");
+      if (!badge || !textElem) return;
+      if (lastMailTime) {
+        const formatted = formatMailReceivedTime(lastMailTime);
+        textElem.textContent = formatted;
+        badge.style.display = "inline-flex";
+        badge.title = `Stock report received from email on: ${formatted}`;
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
     async function loadData() {
       try {
         const res = await fetch(API_URL + "?type=PM");
-        const data = await res.json();
-        products = Array.isArray(data) ? data : [data];
+        const json = await res.json();
+        
+        let mailTime = "";
+        if (Array.isArray(json)) {
+          products = json;
+        } else if (json && Array.isArray(json.data)) {
+          products = json.data;
+          mailTime = json.mailReceivedTime || json.mailReceivedIso || "";
+        } else if (json && json.result && Array.isArray(json.result)) {
+          products = json.result;
+          mailTime = json.mailReceivedTime || "";
+        } else {
+          products = json ? [json] : [];
+        }
+
+        renderMailReceivedTime(mailTime);
         if (products.length > 0) {
           console.log("Keys of first product:", Object.keys(products[0]));
         }
